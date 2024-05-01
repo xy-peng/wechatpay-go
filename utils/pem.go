@@ -3,11 +3,14 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/smx509"
 	"io/ioutil"
 	"time"
 )
@@ -93,6 +96,46 @@ func LoadPublicKeyWithPath(path string) (publicKey *rsa.PublicKey, err error) {
 		return nil, fmt.Errorf("read certificate pem file err:%s", err.Error())
 	}
 	return LoadPublicKey(string(publicKeyBytes))
+}
+
+// LoadSMPrivateKey 从 "PRIVATE KEY" PEM 字符串中加载 SM2 私钥
+func LoadSMPrivateKey(privateKeyStr string) (privateKey *sm2.PrivateKey, err error) {
+	block, _ := pem.Decode([]byte(privateKeyStr))
+	if block == nil {
+		return nil, fmt.Errorf("decode private key err")
+	}
+	if block.Type != "PRIVATE KEY" {
+		return nil, fmt.Errorf("the kind of PEM should be PRVATE KEY")
+	}
+	key, err := smx509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse private key err:%s", err.Error())
+	}
+	switch priv := key.(type) {
+	case *sm2.PrivateKey:
+		return priv, nil
+	default:
+		return nil, fmt.Errorf("not a SM2 private key")
+	}
+}
+
+// LoadSMPublicKey 从 "PUBLIC KEY" PEM 字符串中加载 SM2 公钥
+func LoadSMPublicKey(publicKeyStr string) (publicKey *ecdsa.PublicKey, err error) {
+	block, _ := pem.Decode([]byte(publicKeyStr))
+	if block == nil {
+		return nil, fmt.Errorf("decode public key err")
+	}
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("the kind of PEM should be PUBLIC KEY")
+	}
+	key, err := smx509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse public key err:%s", err.Error())
+	}
+	if !sm2.IsSM2PublicKey(key) {
+		return nil, fmt.Errorf("not a SM2 public key")
+	}
+	return key.(*ecdsa.PublicKey), nil
 }
 
 // GetCertificateSerialNumber 从证书中获取证书序列号

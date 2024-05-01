@@ -488,6 +488,31 @@ handler := notify.NewNotifyHandler(
 	verifiers.NewSHA256WithRSAPubkeyVerifier(wechatpayPublicKeyID, *wechatPayPublicKey))
 ```
 
+### 使用国密
+
+为了支持国密，SDK 提供了以下方法，可注入到 `Client` 中：
+
+- 签名：`SM2Signer`。
+- 验签：`SM2PublicKeyVerifier`。注：国密暂时只支持使用公钥验证微信支付签名。
+- 回调解密：`DecryptSM4GCM`。
+- 敏感信息加解密：`EncryptSM2WithPublicKey` 和 `DecryptSM2WithPrivateKey`。
+
+```go
+// 签名器
+priv, _ := utils.LoadSMPrivateKey(merchantPrivateKey)
+signer = signers.NewSM2Signer(merchantID, merchantCertificateSerialNumber, priv)
+
+// 验签器
+pub, err := utils.LoadSMPublicKey(wechatPaySMPublicKey)
+verifier = verifiers.NewSM2PublicKeyVerifier(wechatPaySMPublicKeyID, *pub)
+
+// 加密
+cipher, err := utils.EncryptSM2WithPublicKey(pub, "test")
+
+// 构造 Client
+client, err := core.NewClient(ctx, option.WithSigner(signer), option.WithVerifier(verifier))
+```
+
 ## 常见问题
 
 常见问题请见 [FAQ.md](FAQ.md)。
